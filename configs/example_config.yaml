@@ -1,0 +1,59 @@
+# MultiQTL example configuration. Paths are relative to this file (configs/) -> ../sim_data, created by `multiqtl simulate sim_data`
+output_dir: ../results_example
+
+genotypes: ../sim_data/genotypes.tsv.gz        # dosage table (variants x samples) or a .vcf/.vcf.gz
+variants:  ../sim_data/variants.tsv            # variant_id, chrom, pos[, ref, alt]  (ignored for VCF input)
+
+layers:
+  expression:                               # any name; used as table/figure prefix
+    type: rnaseq                            # rnaseq | proteomics | normalized
+    data: ../sim_data/rna_counts.tsv.gz        # raw counts, genes x samples
+    annot: ../sim_data/gene_annotation.tsv     # feature_id, chrom, start (TSS), end, strand, gene_id[, symbol]
+    method: tmm_int                         # tmm_int | tmm_log | log | int
+  protein:
+    type: proteomics
+    data: ../sim_data/protein_intensity.tsv.gz # LC-MS intensities, proteins x samples (0/NA = missing)
+    annot: ../sim_data/protein_annotation.tsv  # needs gene_id to link protein -> transcript
+    max_missing: 0.3
+    impute: downshift                       # downshift | min | halfmin | knn
+    center: median                          # median | quantile | none
+    final: int                              # int | zscore | none
+
+genotype_qc: {maf_min: 0.05, call_rate_min: 0.95, hwe_p_min: 1.0e-6, hwe_method: chisq}
+
+covariates:
+  known: ../sim_data/covariates.tsv            # samples x covariates; categorical columns are one-hot encoded
+  genotype_pcs: 3
+  hidden_factors: auto                      # auto (Buja–Eyuboglu) | elbow | integer
+  max_hidden: 30
+
+cis:
+  window: 1000000
+  n_perm: 1000
+  fdr: 0.05
+  nominal_pval_max: 1.0                     # keep every cis test (lower to save disk on large studies)
+  independent: true
+  eigenmt: true
+
+trans: {enabled: true, pval_threshold: 1.0e-5, cis_exclusion: 5000000, n_perm: 2, fdr: 0.05}
+
+interaction:                                # genotype x covariate QTLs (e.g. age-dependent / ontogeny pQTLs)
+  enabled: true
+  covariate: age
+  layers: [protein]
+
+integration:
+  transcript_layer: expression
+  protein_layer: protein
+  coloc: {p1: 1.0e-4, p2: 1.0e-4, p12: 1.0e-5}
+  mediation_boot: 1000
+  smr_p_exp_max: 1.0e-5
+
+fdr_methods: [bh, by, bonferroni, holm, qvalue, lfdr]
+
+output:
+  table_formats: [tsv, xlsx]                # tsv, tsv.gz, csv, parquet, json, xlsx
+  figure_formats: [png, pdf, svg, tiff]     # + eps
+  dpi: 600
+  n_locus_plots: 6
+  report: true
